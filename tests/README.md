@@ -10,6 +10,8 @@ python3 -m http.server 8765 --directory .
 node tests/smoke.js              # every module and tab as every demo role: no console errors, no crashed pages
 node tests/flow.js               # lead → sale → proof → Finance confirms → receipt → ledger; maker-checker, 2-officer rule, period lock, approvals, Form A source rules, clock-in, leave, chat, auto-marked test
 node tests/flow2.js              # transfer/revocation/commission/journal/reopen approvals, invoices, induction, source correction, SLA, migration importers, role overrides
+node tests/flow3.js              # survey-plan map, facility requests, dashboard filters, search page, auditor expiry
+node tests/fuzz3.js u_md,u_fin1  # opens every row and drawer, clicks every action, auto-fills and submits every form
 node tests/fuzz.js u_md,u_fin1   # clicks every button on every page for the given roles and submits empty forms
 ```
 

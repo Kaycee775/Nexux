@@ -74,6 +74,7 @@ function loginPage() {
 }
 ACT['login'] = el => {
   const u = userById(el.dataset.u);
+  if (u.expires && u.expires < today()) return toast('This access ended on ' + fmtDate(u.expires) + '. Ask an administrator to extend it.', 'bad');
   const done = () => { SESS.uid = u.id; SESS.co = u.co.includes(CO) ? CO : u.co[0]; CO = SESS.co; saveSession(); audit('login', 'session', u.id, ROLES[u.role].label + (ROLES[u.role].tfa ? ' (2FA)' : '')); location.hash = '#/dashboard'; render(); };
   if (ROLES[u.role].tfa) openForm({ title: 'Two-factor sign-in', submit: 'Verify and sign in', fields: [{ n: 'code', l: 'Six-digit code from your authenticator app', req: true, ph: '123456', hint: 'Demo code: 123456', vf: v => v === '123456' ? '' : 'That code is not valid. Enter 123456 for the demo.' }], onSubmit: () => { done(); } });
   else done();
@@ -126,8 +127,15 @@ function searchAll(q) {
 function paintSearch(q) {
   const box = $('#sres'); if (!box) return; const res = searchAll(q); if (q.trim().length < 2) { box.classList.add('hide'); return; }
   let g = ''; box.innerHTML = res.length ? res.map(r => { const h = (r.g !== g ? `<div class="grp">${r.g}</div>` : ''); g = r.g; return `${h}<a href="#/${r.l}" data-act="sclose">${icon(r.ic, 'sm')}<span class="grow"><b style="font-weight:500">${esc(r.t)}</b><br><span class="small muted">${esc(r.s || '')}</span></span></a>`; }).join('') : '<div class="empty">No results. Try a name, phone number, plot or invoice number.</div>';
-  box.classList.remove('hide');
+  box.innerHTML += `<a href="#/search?q=${encodeURIComponent(q.trim())}" data-act="sclose" style="justify-content:center;color:var(--forest)">See all results and filter</a>`; box.classList.remove('hide');
 }
+PAGES.search = (parts, q) => {
+  const term = q.q || UI.lastSearch || ''; UI.lastSearch = term; const res = searchAll(term); const groups = uniq(res.map(r => r.g)); const g = UI.searchG && groups.includes(UI.searchG) ? UI.searchG : '';
+  const list = res.filter(r => !g || r.g === g);
+  return pageHead({ title: `Search${pi('search', true)}results`, sub: term ? `${res.length} results for “${esc(term)}” across what your role can see` : 'Type at least two characters in the search box' }) + `<form class="row" style="margin-bottom:14px" data-submit="search.go"><label class="chip grow">${icon('search', 'sm')}<input name="q" value="${esc(term)}" placeholder="Search clients, plots, staff, invoices, tickets" aria-label="Search"></label><button class="btn primary">Search</button></form><div class="tabs">${[''].concat(groups).map(x => `<a href="#" data-act="search.g" data-g="${esc(x)}" class="${x === g ? 'on' : ''}">${x || 'All'}${x ? `<span class="n">${res.filter(r => r.g === x).length}</span>` : ''}</a>`).join('')}</div>` + (list.length ? `<div class="stack" style="gap:8px">${list.map(r => `<a class="tilebtn" href="#/${r.l}">${icon(r.ic)}<span class="grow"><b style="font-weight:500">${esc(r.t)}</b><br><span class="small muted">${esc(r.s || '')}</span></span><span class="tag">${esc(r.g)}</span></a>`).join('')}</div>` : card('', emptyState(term ? 'No results. Try a name, phone number, plot or invoice number.' : 'Start typing to search.', 'search')));
+};
+ACT['search.go'] = f => { const v = f.q.value.trim(); UI.searchG = ''; go('search?q=' + encodeURIComponent(v)); };
+ACT['search.g'] = el => { UI.searchG = el.dataset.g; render(); };
 ACT['sclose'] = () => { $('#sres')?.classList.add('hide'); const s = $('#gsearch'); if (s) s.value = ''; };
 
 /* ---------- notifications, profile, quick create ---------- */
@@ -137,6 +145,7 @@ ACT['nreadall'] = () => { DB.q('notifications').filter(n => n.user === SESS.uid)
 PAGES.notifications = () => { setTimeout(() => ACT.bell(), 10); return pageHead({ title: 'Notifications' }) + card('', '<p class="muted">Opening your notifications…</p>'); };
 ACT['more'] = () => openModal({ title: 'Menu', body: `<div class="stack" style="gap:8px">${NAV.filter(n => n.k && allowed(n.k)).map(n => `<a class="tilebtn" href="#/${n.k}" data-act="ov.close">${icon(n.ic)}<span>${n.l}</span></a>`).join('')}<a class="tilebtn" href="#/profile" data-act="ov.close">${icon('user')}<span>Profile</span></a></div>`, live: false });
 ACT['nav.toggle'] = () => { UI.open = !UI.open; localStorage.setItem(LS_UI, JSON.stringify(UI)); $('.rail').classList.toggle('open', UI.open); };
+ACT['profile'] = () => { closeAllOverlays(); go('profile'); };
 ACT['quick'] = () => {
   const items = [['New task', 'clipboard', () => ACT['task.new']?.()], ['Request leave', 'calendar', () => ACT['leave.new']?.()], ['Raise expense requisition', 'wallet', () => ACT['exp.new']?.(), 'fin.expense.any'], ['New lead', 'target', () => ACT['lead.new']?.(), 'crm.write'], ['Log ticket', 'headset', () => ACT['tk.new']?.(), 'cx.write'], ['Record payment', 'coins', () => ACT['pay.new']?.(), 'fin.confirm'], ['New invoice', 'receipt', () => ACT['inv.new']?.(), 'fin.invoice'], ['Register realtor (walk-in)', 'share', () => ACT['rlt.new']?.(), 'rlt.write']].filter(i => !i[3] || i[3] === 'fin.expense.any' || can(i[3]));
   QUICK = items; openModal({ title: 'Quick create', body: `<div class="stack" style="gap:8px">${items.map((it, i) => `<button class="tilebtn" data-act="quick.go" data-i="${i}">${icon(it[1])}<span>${it[0]}</span></button>`).join('')}</div>`, live: false });
@@ -172,7 +181,7 @@ document.addEventListener('change', e => {
   if (tableChange(e)) return;
   const fi = e.target.closest('[data-file]'); if (fi && e.target.files && !e.target.closest('#overlay')) { const file = e.target.files[0]; if (!file) return; const rd = new FileReader(); rd.onload = () => { e.target.dataset.url = rd.result; e.target.dataset.fname = file.name; }; rd.readAsDataURL(file); }
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && OV.stack.length) closeOverlay(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && OV.stack.length) closeOverlay(); if (e.key === 'Enter' && e.target.id === 'gsearch' && e.target.value.trim().length > 1) { go('search?q=' + encodeURIComponent(e.target.value.trim())); $('#sres')?.classList.add('hide'); } });
 window.addEventListener('hashchange', () => { closeAllOverlays(); render(); });
 window.addEventListener('storage', e => { if (e.key === LS_REV && SESS.uid) { DB.load(); if (ROUTE.parts[0] === 'chat' && typeof chatRefresh === 'function' && chatRefresh()) return; if (!OV.stack.length && !(document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))) render(); } });
 

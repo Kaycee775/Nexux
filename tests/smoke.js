@@ -4,13 +4,13 @@ const URL0 = process.env.TRIOP_URL || 'http://localhost:8765/index.html';
 const BASE = URL0;
 const USERS = (process.argv[2] || 'u_md,u_coo,u_ops,u_sales,u_rd,u_cxh,u_fin1,u_fin2,u_hr,u_s1,u_cx1,u_op1,u_admin,u_aud').split(',');
 const ROUTES = {
-  dashboard: ['', 'exec', 'dept', 'me'], mywork: [''], approvals: ['waiting', 'mine', 'all'], notifications: [''], profile: [''],
+  dashboard: ['', 'exec', 'dept', 'me'], mywork: [''], approvals: ['waiting', 'mine', 'all'], notifications: [''], profile: [''], search: ['?q=Lisbon'],
   inventory: ['estates', 'plots', 'titles', 'inspections'], crm: ['pipeline', 'leads', 'clients', 'sales', 'calls', 'targets'],
   realtors: ['pipeline', 'events', 'sources', 'network', 'leads', 'reports', 'formA'], cx: ['tickets', 'sla', 'surveys'],
   finance: ['confirm', 'payments', 'collections', 'commissions', 'invoices', 'expenses', 'budgets', 'reports', 'tripay'],
   accounting: ['accounts', 'journals', 'payables', 'bank', 'statements/pnl', 'statements/bs', 'statements/tb', 'statements/cf', 'periods', 'tax', 'assets', 'payroll'],
   hr: ['directory', 'org', 'leave', 'attendance', 'vault', 'onboarding', 'announcements', 'payroll', 'exit'], performance: ['scorecards', 'kpis', 'appraisals', 'alerts'], learning: ['mine', 'programmes', 'calendar', 'assignments', 'assessments', 'reading', 'reports', 'certs'],
-  work: ['tasks', 'board', 'calendar', 'gantt', 'projects', 'issues', 'timesheets', 'workload', 'reports'], reports: ['submissions', 'review', 'digest'], chat: [''],
+  work: ['tasks', 'board', 'calendar', 'gantt', 'projects', 'issues', 'facility', 'timesheets', 'workload', 'reports'], reports: ['submissions', 'review', 'digest'], chat: [''],
   admin: ['users', 'roles', 'org', 'rules', 'settings', 'templates', 'lookups', 'integrations', 'data', 'chat', 'audit']
 };
 (async () => {
@@ -27,7 +27,7 @@ const ROUTES = {
     await page.waitForSelector('.shell', { timeout: 5000 });
     for (const [mod, tabs] of Object.entries(ROUTES)) {
       for (const t of tabs) {
-        total++; errs.length = 0; const h = `#/${mod}${t ? '/' + t : ''}`;
+        total++; errs.length = 0; const h = `#/${mod}${t ? (t[0] === '?' ? t : '/' + t) : ''}`;
         await page.evaluate(h2 => { location.hash = h2; }, h); await page.waitForTimeout(60);
         const txt = await page.evaluate(() => document.querySelector('#main') ? document.querySelector('#main').innerText.slice(0, 3000).replace(/\n/g, ' ') : 'NOMAIN');
         const failed = errs.length || /Something went wrong/.test(txt) || (/Not found|does not exist/.test(txt));
