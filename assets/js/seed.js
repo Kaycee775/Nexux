@@ -1,7 +1,7 @@
 'use strict';
 /* Demo data for Tri-OP. Built through the same engine functions the app uses, so ledger, plots and schedules stay consistent. */
 
-const COLLS = ['companies', 'users', 'depts', 'employees', 'estates', 'plots', 'leads', 'clients', 'interactions', 'sales', 'payments', 'collections', 'invoices', 'commissions', 'expenses', 'budgets', 'accounts', 'journals', 'vendors', 'bills', 'bankAccts', 'bankTxns', 'assets', 'periods', 'taxes', 'realtors', 'campaigns', 'events', 'tasks', 'projects', 'issues', 'timelogs', 'timesheets', 'tickets', 'kpis', 'kpiVals', 'appraisals', 'reports', 'channels', 'messages', 'programmes', 'sessions', 'assignments', 'submissions', 'assessments', 'attempts', 'certs', 'leaves', 'attendance', 'announcements', 'acks', 'approvals', 'notifications', 'docsLog', 'inspections', 'vault', 'exitslips', 'exceptions', 'outbox', 'webhooks', 'targets', 'rules', 'templates', 'lookups', 'readings', 'savedviews', 'audit'];
+const COLLS = ['companies', 'users', 'depts', 'employees', 'estates', 'plots', 'leads', 'clients', 'interactions', 'sales', 'payments', 'collections', 'invoices', 'commissions', 'expenses', 'budgets', 'accounts', 'journals', 'vendors', 'bills', 'bankAccts', 'bankTxns', 'assets', 'periods', 'taxes', 'realtors', 'campaigns', 'events', 'tasks', 'projects', 'issues', 'timelogs', 'timesheets', 'tickets', 'kpis', 'kpiVals', 'appraisals', 'reports', 'channels', 'messages', 'programmes', 'sessions', 'assignments', 'submissions', 'assessments', 'attempts', 'certs', 'leaves', 'attendance', 'announcements', 'acks', 'approvals', 'notifications', 'docsLog', 'inspections', 'vault', 'exitslips', 'exceptions', 'outbox', 'webhooks', 'targets', 'rules', 'templates', 'lookups', 'readings', 'savedviews', 'schedules', 'surveys', 'audit'];
 
 const COA = [
   ['1010', 'Bank – Main account', 'asset'], ['1020', 'Cash on hand', 'asset'], ['1100', 'Receivables – property sales', 'asset'], ['1150', 'Receivables – other income', 'asset'], ['1200', 'Prepayments and deposits', 'asset'], ['1500', 'Fixed assets – cost', 'asset'], ['1590', 'Accumulated depreciation', 'asset'],
@@ -29,7 +29,7 @@ const Seed = {
     /* users */
     const U = (id, name, role, dept, title, extra = {}) => ({ id, name, role, dept, title, email: name.toLowerCase().replace(/[^a-z ]/g, '').replace(/ /g, '.') + '@triconna.example', phone: '080' + ri(10000000, 99999999), co: ['tre'], flags: [], prefs: { email: true, sms: false, app: true }, ...extra });
     DB.d.users = [
-      U('u_admin', 'Tunde Bakare', 'superadmin', 'IT', 'System Administrator', { co: ['tre', 'tfm'] }),
+      U('u_admin', 'Tunde Bakare', 'superadmin', 'IT', 'System Administrator', { co: ['tre', 'tfm'], manager: 'u_coo' }),
       U('u_md', 'Chinedu Eze', 'groupexec', 'Management', 'Managing Director', { co: ['tre', 'tfm'] }),
       U('u_coo', 'Ifeoma Nwosu', 'companyexec', 'Management', 'Chief Operating Officer', { manager: 'u_md' }),
       U('u_ops', 'Amina Yusuf', 'hod', 'Operations', 'Operations Director', { manager: 'u_coo', flags: ['opsdirector'] }),
@@ -150,7 +150,7 @@ const Seed = {
     DB.add('targets', { userId: 'team', month: mo, count: 16, value: 110000000 }, { quiet: true });
 
     /* collections follow-up logs */
-    overdueItems().slice(0, 6).forEach(o => DB.add('collections', { key: o.id, saleId: o.sale.id, ts: now - ri(1, 30) * 36e5, by: o.sale.officer, note: pick(['Client promised to pay Friday.', 'Phone not reachable; sent SMS.', 'Client requested restructure.']), outcome: pick(['Promise to pay', 'No answer', 'Dispute']) }, { quiet: true }));
+    overdueItems().slice(0, -2).forEach(o => DB.add('collections', { key: o.id, saleId: o.sale.id, ts: now - ri(1, 44) * 36e5, by: o.sale.officer, note: pick(['Client promised to pay Friday.', 'Phone not reachable; sent SMS.', 'Client requested restructure.']), outcome: pick(['Promise to pay', 'No answer', 'Dispute']) }, { quiet: true }));
 
     /* commissions: approve the oldest, leave others */
     DB.q('commissions').forEach((c, i) => { if (i % 4 === 0) { SESS.uid = 'u_ops'; DB.set('commissions', c.id, { status: 'approved', approvedAt: now - ri(5, 60) * 864e5 }, { quiet: true }); try { postJournal({ date: dAgo(ri(5, 60)), memo: 'Commission ' + commissionPayee(c), lines: [{ acct: '5100', dr: c.amount, dept: 'Sales' }, { acct: '2100', cr: c.amount }], source: 'commission', ref: c.id, quiet: true, force: true }); } catch (e) { } if (i % 8 === 0) { DB.set('commissions', c.id, { status: 'paid', paidAt: now - ri(1, 20) * 864e5 }, { quiet: true }); try { postJournal({ date: dAgo(ri(1, 20)), memo: 'Commission payout ' + commissionPayee(c), lines: [{ acct: '2100', dr: c.amount }, { acct: '1010', cr: c.amount }], source: 'commission-paid', ref: c.id, quiet: true, force: true }); } catch (e) { } } } });
@@ -207,7 +207,7 @@ const Seed = {
 
     /* tickets */
     const CATS = ['Documentation', 'Payment', 'Allocation', 'Site visit', 'Complaint', 'General enquiry']; const SLA = DB.setting('slaHours');
-    for (let i = 0; i < 14; i++) { const pr = pick(['Urgent', 'High', 'Medium', 'Low']); const created = now - ri(0, 12) * 864e5 - ri(0, 20) * 36e5; const resolved = i % 3 === 0; const cl = clients[i % clients.length]; const t = DB.add('tickets', { no: 'TK-' + String(DB.seq('ticket')).padStart(4, '0'), clientId: cl.id, plotId: '', saleId: DB.q('sales').find(s => s.clientId === cl.id)?.id || '', subject: pick(['Receipt not received', 'Request for C of O update', 'Wrong plot size on letter', 'Site inspection request', 'Payment not reflecting', 'Change of next of kin']), category: pick(CATS), priority: pr, channel: pick(['Email', 'Phone', 'Walk-in', 'Tri-Pay']), owner: pick(['u_cx1', 'u_cx2']), status: resolved ? 'Resolved' : pick(['Open', 'In progress']), created, slaDue: created + SLA[pr] * 36e5, notes: [], csat: resolved ? ri(3, 5) : null, resolvedAt: resolved ? created + ri(2, 30) * 36e5 : null, breached: false }, { quiet: true }); }
+    for (let i = 0; i < 14; i++) { const pr = pick(['Urgent', 'High', 'Medium', 'Low']); const resolved = i % 3 === 0; const created = resolved ? now - ri(0, 12) * 864e5 - ri(0, 20) * 36e5 : now - ri(0, 30) * 36e5; const cl = clients[i % clients.length]; const t = DB.add('tickets', { no: 'TK-' + String(DB.seq('ticket')).padStart(4, '0'), clientId: cl.id, plotId: '', saleId: DB.q('sales').find(s => s.clientId === cl.id)?.id || '', subject: pick(['Receipt not received', 'Request for C of O update', 'Wrong plot size on letter', 'Site inspection request', 'Payment not reflecting', 'Change of next of kin']), category: pick(CATS), priority: pr, channel: pick(['Email', 'Phone', 'Walk-in', 'Tri-Pay']), owner: pick(['u_cx1', 'u_cx2']), status: resolved ? 'Resolved' : pick(['Open', 'In progress']), created, slaDue: created + SLA[pr] * 36e5, notes: [], csat: resolved ? ri(3, 5) : null, resolvedAt: resolved ? created + ri(2, 30) * 36e5 : null, breached: false }, { quiet: true }); }
 
     /* KPIs */
     const K = (name, source, target, role, dir = 'high', unit = '') => DB.add('kpis', { name, source, target, role, dir, unit }, { quiet: true });
@@ -250,6 +250,7 @@ const Seed = {
     DB.add('inspections', { leadId: DB.q('leads')[15]?.id, clientName: DB.q('leads')[15]?.name, estateId: sizeOrder[3].id, date: addDays(t0, -3), time: '10:00', officer: 'u_s2', outcome: 'Interested in 450 sqm plot; will reserve next week.', status: 'Completed' }, { quiet: true });
 
     /* second company light data */
+    CO = 'tre'; DB.add('schedules', { name: 'Daily collections summary', type: 'collections', time: '18:00', recipients: ['u_md', 'u_coo'], active: true, lastRun: '' }, { quiet: true });
     CO = 'tfm'; DB.add('clients', { name: 'Palmgrove Residents Association', phone: '08031234567', email: 'office@palmgrove.example', address: 'Lekki, Lagos', kyc: [], officer: 'u_f1', source: 'Referral', created: now - 60 * 864e5 }, { quiet: true }); DB.add('tasks', { title: 'Quarterly generator service · Palmgrove', assignee: 'u_f1', due: addDays(t0, 6), priority: 'Medium', status: 'todo', checklist: [], comments: [], history: [], created: now }, { quiet: true });
     postJournal({ date: addDays(t0, -60), memo: 'Opening capital', lines: [{ acct: '1010', dr: 20000000 }, { acct: '3000', cr: 20000000 }], source: 'manual', quiet: true, force: true }); DB.add('channels', { name: 'general', type: 'public', members: ['u_md', 'u_f1'] }, { quiet: true }); CO = 'tre';
 
