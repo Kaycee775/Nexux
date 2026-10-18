@@ -1,0 +1,9 @@
+{
+  "name": "Tri-OP Management System",
+  "short_name": "Tri-OP",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#FCFFFC",
+  "theme_color": "#001F10",
+  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
