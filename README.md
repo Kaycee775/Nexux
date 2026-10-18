@@ -34,6 +34,8 @@ On the sign-in screen pick a demo account. Executive, Finance, HR and Admin role
 
 Public pages (no login): `#/f/form-a` (realtor Form A), `#/f/lead` (website lead form), `#/verify/<code>` (document verification from the QR code).
 
+See [CHECKLIST.md](CHECKLIST.md) for where every one of the 167 screens in the design checklist lives.
+
 ## The core workflow (Section 7)
 
 Lead → site inspection → plot reserved (timed hold) → sale and plan set → plan published to Tri-Pay → client pays and uploads proof (Tri-Pay sandbox: *Finance → Tri-Pay → Simulate client payment*) → **Finance confirms** (*Finance → Confirm payments*) → receipt with QR code issued, payment posted to the ledger, plot allocated, commission calculated → fully paid → documentation tracked → documented.

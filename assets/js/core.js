@@ -163,13 +163,15 @@ const readOnlyUser = () => !!(ROLES[me()?.role]?.readonly);
 const isExec = () => ['groupexec', 'companyexec'].includes(me()?.role);
 
 /* ---------- notifications & outbox ---------- */
+const NOTE_CATS = [['approvals', 'Approvals and requests'], ['tasks', 'Tasks and projects'], ['chat', 'Chat mentions and messages'], ['finance', 'Finance and collections'], ['people', 'HR, leave and attendance'], ['learning', 'Learning and training'], ['system', 'System and critical alerts']];
+function noteCat(link = '') { const l = String(link); return /approvals/.test(l) ? 'approvals' : /#\/work|mywork/.test(l) ? 'tasks' : /#\/chat/.test(l) ? 'chat' : /#\/(finance|accounting|crm\/sales)/.test(l) ? 'finance' : /#\/(hr|reports|performance)/.test(l) ? 'people' : /#\/learning/.test(l) ? 'learning' : 'system'; }
 function notify(userId, title, body = '', link = '', critical = false) {
   if (!userId) return;
-  const u = userById(userId);
-  DB.add('notifications', { user: userId, title, body, link, read: false, critical, ts: Date.now() }, { quiet: true });
-  const pref = (u && u.prefs) || { email: true, sms: false };
-  if (critical || pref.email) DB.add('outbox', { channel: 'email', to: u ? u.email : userId, text: title + (body ? ' — ' + body : ''), ts: Date.now() }, { quiet: true });
-  if (critical || pref.sms) DB.add('outbox', { channel: 'sms', to: u ? (u.phone || '') : '', text: title, ts: Date.now() }, { quiet: true });
+  const u = userById(userId); const cat = critical ? 'system' : noteCat(link); const np = ((u && u.nprefs) || {})[cat] || {}; const pref = (u && u.prefs) || { email: true, sms: false, app: true };
+  const app = critical || (np.app ?? pref.app ?? true), email = critical || (np.email ?? pref.email ?? true), sms = critical || (np.sms ?? pref.sms ?? false);
+  if (app) DB.add('notifications', { user: userId, title, body, link, read: false, critical, cat, ts: Date.now() }, { quiet: true });
+  if (email) DB.add('outbox', { channel: 'email', to: u ? u.email : userId, text: title + (body ? ' — ' + body : ''), ts: Date.now() }, { quiet: true });
+  if (sms) DB.add('outbox', { channel: 'sms', to: u ? (u.phone || '') : '', text: title, ts: Date.now() }, { quiet: true });
 }
 function notifyRole(role, title, body, link, critical) { DB.d.users.filter(u => u.role === role && u.co.includes(CO)).forEach(u => notify(u.id, title, body, link, critical)); }
 const unreadCount = () => DB.q('notifications').filter(n => n.user === SESS.uid && !n.read).length;

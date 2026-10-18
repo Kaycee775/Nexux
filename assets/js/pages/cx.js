@@ -2,7 +2,7 @@
 /* Customer experience (M-CX), performance management (M-PRF) and departmental reporting (M-RPT) */
 
 /* ================= Customer experience ================= */
-const CX_TABS = [{ k: 'tickets', l: 'Tickets' }, { k: 'sla', l: 'SLA' }, { k: 'surveys', l: 'Surveys and notices' }];
+const CX_TABS = [{ k: 'tickets', l: 'Tickets' }, { k: 'sla', l: 'SLA' }, { k: 'surveys', l: 'Surveys and notices' }, { k: 'templates', l: 'Milestone templates' }];
 const TK_STATUS = ['Open', 'In progress', 'Waiting on client', 'Resolved', 'Closed'];
 const TK_CATS = ['Documentation', 'Payment', 'Allocation', 'Site visit', 'Complaint', 'General enquiry'];
 const cxW = () => can('cx.write') && modAccess('cx') === 'write';
@@ -11,7 +11,7 @@ const slaText = t => { if (['Resolved', 'Closed'].includes(t.status)) return t.r
 
 PAGES.cx = (parts, q) => {
   const tab = parts[0] || 'tickets'; const open = DB.q('tickets').filter(t => !['Resolved', 'Closed'].includes(t.status));
-  let body = ''; if (tab === 'tickets') body = cxTickets(); else if (tab === 'sla') body = cxSla(); else if (tab === 'surveys') body = cxSurveys();
+  let body = ''; if (tab === 'tickets') body = cxTickets(); else if (tab === 'sla') body = cxSla(); else if (tab === 'surveys') body = cxSurveys(); else if (tab === 'templates') body = cxTemplates();
   openFromQuery('t', id => openTicket(id));
   return pageHead({ title: `Customer${pi('headset', true)}experience`, sub: `${open.length} open tickets · ${open.filter(t => t.breached).length} breached SLA`, acts: cxW() ? `<button class="btn primary" data-act="tk.new">${icon('plus', 'sm')} Log ticket</button>` : '' }) + tabs('cx', CX_TABS, tab) + body;
 };
@@ -47,15 +47,20 @@ function cxSurveys() {
 }
 ACT['nps.new'] = () => openForm({ title: 'Record NPS response', fields: [{ n: 'clientId', l: 'Client', t: 'select', req: true, o: DB.q('clients').map(c => [c.id, c.name]) }, { n: 'milestone', l: 'Milestone', t: 'select', blank: false, o: ['Allocation', 'Full payment', 'Documentation'] }, { n: 'score', l: 'Score (0 to 10)', t: 'number', req: true, min: 0, max: 10 }], onSubmit: v => { DB.add('surveys', { kind: 'NPS', ...v }); render(); } });
 
+function cxTemplates() {
+  return `<div class="alert info" style="margin-bottom:14px">${icon('mail', 'sm')}<span>Clients are notified automatically at allocation, full payment and when documents are ready. Edit the wording here. Use <code>{{name}}</code>, <code>{{sale}}</code>, <code>{{estate}}</code> and <code>{{plots}}</code>.</span></div>` + table({ id: 'msgtpl', title: 'Milestone notification templates', export: false, rows: () => DB.q('msgtpl'), onRow: t => ACT['mt.edit'](null, t.id), cols: [{ k: 'name', l: 'Milestone' }, { k: 'channel', l: 'Channel', r: t => spill(t.channel, 'info'), x: t => t.channel }, { k: 'text', l: 'Message', r: t => `<span class="small">${esc(t.text)}</span>`, x: t => t.text }, { k: 'a', l: '', r: t => `<button class="btn sm" data-act="mt.edit" data-id="${t.id}">Edit</button>`, x: () => '' }] }) + `<div style="margin-top:16px">${card('Sent notices', DB.q('interactions').filter(i => i.type === 'System').sort(by(i => i.ts, -1)).slice(0, 8).map(i => `<div class="row" style="padding:4px 0"><span class="grow">${esc(i.note)}<br><span class="small muted">${esc(DB.get('clients', i.clientId)?.name || '')}</span></span><span class="small muted">${ago(i.ts)}</span></div>`).join('') || '<p class="muted">None sent yet.</p>', { ic: 'mail' })}</div>`;
+}
+ACT['mt.edit'] = (el, id) => { const t = DB.get('msgtpl', typeof id === 'string' ? id : el.dataset.id); if (!(can('cx.write') || me().role === 'hod' || can('admin.config'))) return toast('Only Customer Experience can edit these.', 'warn'); openForm({ title: 'Edit ' + esc(t.name) + ' notice', vals: t, fields: [{ n: 'channel', l: 'Channel', t: 'select', blank: false, o: ['SMS', 'Email'] }, { n: 'text', l: 'Message', t: 'textarea', req: true, hint: 'Preview: ' + esc(t.text.replace(/\{\{name\}\}/g, 'Ada').slice(0, 60)) + '…' }], onSubmit: v => { DB.set('msgtpl', t.id, v, { action: 'template-change' }); render(); } }); };
+
 /* ================= Performance ================= */
-const PRF_TABS = () => { const t = [{ k: 'scorecards', l: 'Scorecards' }]; if (can('perf.manage')) t.push({ k: 'kpis', l: 'KPI library' }); t.push({ k: 'appraisals', l: 'Appraisals' }); if (can('perf.manage') || can('approve.team')) t.push({ k: 'alerts', l: 'Alerts' }); return t; };
+const PRF_TABS = () => { const t = [{ k: 'scorecards', l: 'Individual scorecard' }, { k: 'departments', l: 'Department scorecard' }]; if (can('perf.manage')) t.push({ k: 'kpis', l: 'KPI library' }, { k: 'targets', l: 'Target setting' }); t.push({ k: 'appraisals', l: 'Appraisals' }); if (can('perf.manage') || can('approve.team')) t.push({ k: 'alerts', l: 'Alerts' }); return t; };
 const kpisFor = u => DB.q('kpis').filter(k => k.role === 'All staff' || k.role === u.title);
 const kpiTarget = (k, m) => (k.targets && k.targets[m] != null) ? k.targets[m] : k.target;
 function kpiEval(k, uid, m) { const a = kpiActual(k, uid, m); const t = kpiTarget(k, m); return { k, a, t, s: kpiStatus({ ...k, target: t }, a) }; }
 const fmtKpi = (k, v) => v == null ? '—' : k.unit === '₦' ? moneyShort(v) : (Math.round(v * 10) / 10) + (k.unit === '%' ? '%' : k.unit === '/5' ? ' / 5' : '');
 PAGES.performance = (parts, q) => {
   const tl = PRF_TABS(); const tab = parts[0] && tl.find(t => t.k === parts[0]) ? parts[0] : 'scorecards';
-  let body = ''; if (tab === 'scorecards') body = prfScorecards(); else if (tab === 'kpis') body = prfKpis(); else if (tab === 'appraisals') body = prfAppraisals(); else if (tab === 'alerts') body = prfAlerts();
+  let body = ''; if (tab === 'scorecards') body = prfScorecards(); else if (tab === 'kpis') body = prfKpis(); else if (tab === 'departments') body = prfDepartments(); else if (tab === 'targets') body = prfTargets(); else if (tab === 'appraisals') body = prfAppraisals(); else if (tab === 'alerts') body = prfAlerts();
   return pageHead({ title: `Performance${pi('trophy', true)}scorecards`, sub: 'KPIs per role, pulled automatically from module data where possible' }) + tabs('performance', tl, tab) + body;
 };
 function prfScorecards() {
@@ -71,7 +76,7 @@ function prfKpis() {
 }
 const kpiFields = () => [{ n: 'name', l: 'KPI name', req: true }, { n: 'role', l: 'Applies to (job title or All staff)', req: true, hint: 'e.g. Sales Officer, Customer Experience Officer, All staff' }, { n: 'source', l: 'Data source', t: 'select', req: true, blank: false, o: Object.entries(KPI_SOURCES).map(([k, v]) => [k, v.l]) }, { n: 'target', l: 'Default target', t: 'number', req: true, step: 'any', half: true }, { n: 'unit', l: 'Unit', t: 'select', blank: false, o: [['', 'Count'], ['%', 'Percent'], ['₦', 'Naira'], ['/5', 'Rating out of 5']], half: true }];
 ACT['kpi.new'] = () => openForm({ title: 'New KPI', fields: kpiFields(), onSubmit: v => { DB.add('kpis', { ...v, dir: 'high' }); render(); } });
-ACT['kpi.edit'] = (el, id) => { const k = DB.get('kpis', id || el.dataset.id); const m = monthKey(today()); openForm({ title: 'Edit KPI', fields: kpiFields().concat([{ n: 'mt', l: 'Override target for ' + monthLabel(m), t: 'number', step: 'any', hint: 'Leave blank to use the default.' }]), vals: { ...k, mt: k.targets?.[m] ?? '' }, extra: `<button class="btn danger" data-act="kpi.del" data-id="${k.id}" type="button">Delete</button>`, onSubmit: v => { const { mt, ...rest } = v; const targets = { ...(k.targets || {}) }; if (mt === '' || mt == null) delete targets[m]; else targets[m] = mt; DB.set('kpis', k.id, { ...rest, targets }); render(); } }); };
+ACT['kpi.edit'] = (el, id) => { const k = DB.get('kpis', typeof id === 'string' ? id : el.dataset.id); const m = monthKey(today()); openForm({ title: 'Edit KPI', fields: kpiFields().concat([{ n: 'mt', l: 'Override target for ' + monthLabel(m), t: 'number', step: 'any', hint: 'Leave blank to use the default.' }]), vals: { ...k, mt: k.targets?.[m] ?? '' }, extra: `<button class="btn danger" data-act="kpi.del" data-id="${k.id}" type="button">Delete</button>`, onSubmit: v => { const { mt, ...rest } = v; const targets = { ...(k.targets || {}) }; if (mt === '' || mt == null) delete targets[m]; else targets[m] = mt; DB.set('kpis', k.id, { ...rest, targets }); render(); } }); };
 ACT['kpi.del'] = el => confirmDlg('Delete this KPI?', () => { DB.del('kpis', el.dataset.id); closeAllOverlays(); render(); }, { danger: true });
 
 /* appraisals (PRF-03, P3) */
@@ -150,3 +155,21 @@ function rptDigest() {
 }
 ACT['rpt.week'] = el => { UI.digestWeek = el.value; render(); };
 ACT['digest.print'] = () => printHtml(`<div class="doc"><div class="lh"><b>Executive weekly digest</b><span>${esc(company().name)}</span></div>${$('#digest .card').innerHTML}</div>`);
+
+/* department scorecard (PRF-02) */
+function prfDepartments() {
+  const m = UI.prfMonth || monthKey(today()); const names = DB.q('depts').map(d => d.name).filter(n => !['Management'].includes(n)); const dept = UI.prfDept && names.includes(UI.prfDept) ? UI.prfDept : (me().role === 'hod' ? me().dept : names[0]); const team = coUsers().filter(u => u.dept === dept && u.role !== 'auditor');
+  const rows = team.map(u => { const ev = kpisFor(u).map(k => kpiEval(k, u.id, m)); return { id: u.id, name: u.name, title: u.title, g: ev.filter(e => e.s.s === 'g').length, a: ev.filter(e => e.s.s === 'a').length, r: ev.filter(e => e.s.s === 'r').length, n: ev.filter(e => e.a != null).length, ev }; });
+  const all = rows.flatMap(r => r.ev).filter(e => e.a != null); const score = all.length ? pct(all.filter(e => e.s.s === 'g').length, all.length) : 0;
+  return `<div class="row wrap" style="margin-bottom:14px"><label class="chip"><select data-on="prf.month" aria-label="Month">${opts(Stat.months(6).map(x => [x, monthLabel(x)]), m)}</select></label><label class="chip">${icon('building', 'sm')}<select data-on="prf.dept" aria-label="Department">${opts(names, dept)}</select></label><span class="sp"></span><span class="legend"><span><i style="background:var(--forest)"></i>On track</span><span><i style="background:var(--harvest)"></i>At risk</span><span><i style="background:var(--err)"></i>Off track</span></span></div><div class="grid g3" style="margin-bottom:16px">${tile({ ic: 'trophy', title: esc(dept) + ' on track', value: score + '%', pc: score, caps: { v: score, max: 100 } })}${tile({ cls: 'tea', ic: 'users', title: 'People', value: team.length })}${tile({ cls: 'dark', ic: 'warn', title: 'Off track KPIs', value: all.filter(e => e.s.s === 'r').length })}</div>` + table({ id: 'deptsc', title: 'Department scorecard ' + dept, export: true, rows: () => rows, cols: [{ k: 'name', l: 'Person', r: r => `<div class="cellmain"><b>${esc(r.name)}</b><span>${esc(r.title)}</span></div>`, x: r => r.name }, { k: 'lights', l: 'Traffic lights', r: r => r.n ? `<span class="sig g"></span> ${r.g} &nbsp;<span class="sig a"></span> ${r.a} &nbsp;<span class="sig r"></span> ${r.r}` : '<span class="muted">No data</span>', x: r => r.g + '/' + r.a + '/' + r.r }, { k: 'n', l: 'KPIs with data', num: true }, { k: 'open', l: '', r: r => `<button class="btn sm" data-act="prf.person" data-id="${r.id}">Open scorecard</button>`, x: () => '' }] });
+}
+ACT['prf.dept'] = el => { UI.prfDept = el.value; render(); };
+ACT['prf.person'] = el => { UI.prfUser = el.dataset.id; go('performance/scorecards'); };
+
+/* target setting (PRF-01) */
+function prfTargets() {
+  const m = UI.prfMonth || monthKey(today()); const rows = () => DB.q('kpis').map(k => ({ ...k, cur: kpiTarget(k, m), custom: k.targets && k.targets[m] != null, src: KPI_SOURCES[k.source].l }));
+  return `<div class="row" style="margin-bottom:12px"><label class="chip"><select data-on="prf.month" aria-label="Period">${opts([0, 1, 2, 3, 4, 5].map(i => monthKey(addMonths(today(), i))).map(x => [x, monthLabel(x)]), m)}</select></label><span class="sp"></span><button class="btn" data-act="tgt.copy" data-m="${m}">Copy last month's targets forward</button></div>` + table({ id: 'kpitgt', title: 'KPI targets ' + m, rows, export: true, cols: [{ k: 'name', l: 'KPI' }, { k: 'role', l: 'Applies to' }, { k: 'src', l: 'Source' }, { k: 'target', l: 'Default', num: true, r: k => fmtKpi(k, k.target) }, { k: 'cur', l: monthLabel(m), num: true, r: k => `<input type="number" step="any" value="${k.cur}" data-on="kpi.tgt" data-id="${k.id}" data-m="${m}" style="width:110px;text-align:right;border:1px solid ${k.custom ? 'var(--forest)' : '#C6D8C4'};border-radius:10px;padding:6px 8px" aria-label="Target for ${esc(k.name)}">`, x: k => k.cur }] }) + `<p class="small muted" style="margin-top:8px">A green outline means a target set specially for this month. Changes save as you type and apply to everyone with that KPI.</p>`;
+}
+ACT['kpi.tgt'] = el => { const k = DB.get('kpis', el.dataset.id); const v = el.value === '' ? null : +el.value; const t = { ...(k.targets || {}) }; if (v == null || v === k.target) delete t[el.dataset.m]; else t[el.dataset.m] = v; DB.set('kpis', k.id, { targets: t }, { action: 'target-set' }); toast('Target saved'); };
+ACT['tgt.copy'] = el => { const prev = monthKey(addMonths(el.dataset.m + '-01', -1)); let n = 0; DB.q('kpis').forEach(k => { if (k.targets && k.targets[prev] != null && k.targets[el.dataset.m] == null) { DB.set('kpis', k.id, { targets: { ...k.targets, [el.dataset.m]: k.targets[prev] } }, { quiet: true }); n++; } }); toast(n ? n + ' targets copied' : 'Nothing to copy from last month', n ? '' : 'warn'); render(); };

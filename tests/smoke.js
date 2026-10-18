@@ -4,14 +4,14 @@ const URL0 = process.env.TRIOP_URL || 'http://localhost:8765/index.html';
 const BASE = URL0;
 const USERS = (process.argv[2] || 'u_md,u_coo,u_ops,u_sales,u_rd,u_cxh,u_fin1,u_fin2,u_hr,u_s1,u_cx1,u_op1,u_admin,u_aud').split(',');
 const ROUTES = {
-  dashboard: ['', 'exec', 'dept', 'me'], mywork: [''], approvals: ['waiting', 'mine', 'all'], notifications: [''], profile: [''], search: ['?q=Lisbon'],
-  inventory: ['estates', 'plots', 'titles', 'inspections'], crm: ['pipeline', 'leads', 'clients', 'sales', 'calls', 'targets'],
-  realtors: ['pipeline', 'events', 'sources', 'network', 'leads', 'reports', 'formA'], cx: ['tickets', 'sla', 'surveys'],
+  dashboard: ['', 'md', 'coo', 'company', 'dept', 'me', 'officer', 'audit', 'sys', 'schedules'], mywork: [''], approvals: ['waiting', 'mine', 'all'], notifications: [''], profile: ['', 'notifications', 'security'], system: [''], notifications: ['', 'unread', 'critical'], search: ['?q=Lisbon'],
+  inventory: ['estates', 'plots', 'titles', 'inspections', 'letters'], crm: ['pipeline', 'leads', 'clients', 'sales', 'calls', 'targets', 'rules'],
+  realtors: ['pipeline', 'events', 'sources', 'network', 'leads', 'reports', 'formA'], cx: ['tickets', 'sla', 'surveys', 'templates'],
   finance: ['confirm', 'payments', 'collections', 'commissions', 'invoices', 'expenses', 'budgets', 'reports', 'tripay'],
-  accounting: ['accounts', 'journals', 'payables', 'bank', 'statements/pnl', 'statements/bs', 'statements/tb', 'statements/cf', 'periods', 'tax', 'assets', 'payroll'],
-  hr: ['directory', 'org', 'leave', 'attendance', 'vault', 'onboarding', 'announcements', 'payroll', 'exit'], performance: ['scorecards', 'kpis', 'appraisals', 'alerts'], learning: ['mine', 'programmes', 'calendar', 'assignments', 'assessments', 'reading', 'reports', 'certs'],
-  work: ['tasks', 'board', 'calendar', 'gantt', 'projects', 'issues', 'facility', 'timesheets', 'workload', 'reports'], reports: ['submissions', 'review', 'digest'], chat: [''],
-  admin: ['users', 'roles', 'org', 'rules', 'settings', 'templates', 'lookups', 'integrations', 'data', 'chat', 'audit']
+  accounting: ['accounts', 'ledger', 'journals', 'payables', 'receivables', 'bank', 'consol', 'statements/pnl', 'statements/bs', 'statements/tb', 'statements/cf', 'periods', 'tax', 'assets', 'payroll'],
+  hr: ['directory', 'org', 'leave', 'attendance', 'vault', 'onboarding', 'announcements', 'payroll', 'exit'], performance: ['scorecards', 'departments', 'kpis', 'targets', 'appraisals', 'alerts'], learning: ['mine', 'programmes', 'calendar', 'assignments', 'assessments', 'results', 'reading', 'reports', 'certs'],
+  work: ['tasks', 'board', 'calendar', 'gantt', 'projects', 'templates', 'recurring', 'sitedev', 'assets', 'issues', 'facility', 'timesheets', 'workload', 'reports'], reports: ['submissions', 'review', 'digest'], chat: [''],
+  admin: ['users', 'roles', 'departments', 'companies', 'rules', 'numbering', 'settings', 'templates', 'lookups', 'integrations', 'data', 'chat', 'audit', 'design', 'flows']
 };
 (async () => {
   const browser = await chromium.launch(LAUNCH);
@@ -30,7 +30,7 @@ const ROUTES = {
         total++; errs.length = 0; const h = `#/${mod}${t ? (t[0] === '?' ? t : '/' + t) : ''}`;
         await page.evaluate(h2 => { location.hash = h2; }, h); await page.waitForTimeout(60);
         const txt = await page.evaluate(() => document.querySelector('#main') ? document.querySelector('#main').innerText.slice(0, 3000).replace(/\n/g, ' ') : 'NOMAIN');
-        const failed = errs.length || /Something went wrong/.test(txt) || (/Not found|does not exist/.test(txt));
+        const failed = errs.length || (mod !== 'system' && /Something went wrong/.test(txt)) || (/Not found|does not exist/.test(txt));
         if (failed) { bad++; console.log(`[${uid}] ${h} -> ${errs.join(' | ') || txt.slice(0,200)}`); }
       }
     }

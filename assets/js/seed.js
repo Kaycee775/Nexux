@@ -1,7 +1,7 @@
 'use strict';
 /* Demo data for Tri-OP. Built through the same engine functions the app uses, so ledger, plots and schedules stay consistent. */
 
-const COLLS = ['companies', 'users', 'depts', 'employees', 'estates', 'plots', 'leads', 'clients', 'interactions', 'sales', 'payments', 'collections', 'invoices', 'commissions', 'expenses', 'budgets', 'accounts', 'journals', 'vendors', 'bills', 'bankAccts', 'bankTxns', 'assets', 'periods', 'taxes', 'realtors', 'campaigns', 'events', 'tasks', 'projects', 'issues', 'timelogs', 'timesheets', 'tickets', 'kpis', 'kpiVals', 'appraisals', 'reports', 'channels', 'messages', 'programmes', 'sessions', 'assignments', 'submissions', 'assessments', 'attempts', 'certs', 'leaves', 'attendance', 'announcements', 'acks', 'approvals', 'notifications', 'docsLog', 'inspections', 'vault', 'exitslips', 'exceptions', 'outbox', 'webhooks', 'targets', 'rules', 'templates', 'lookups', 'readings', 'savedviews', 'schedules', 'surveys', 'facilityreqs', 'audit'];
+const COLLS = ['companies', 'users', 'depts', 'employees', 'estates', 'plots', 'leads', 'clients', 'interactions', 'sales', 'payments', 'collections', 'invoices', 'commissions', 'expenses', 'budgets', 'accounts', 'journals', 'vendors', 'bills', 'bankAccts', 'bankTxns', 'assets', 'periods', 'taxes', 'realtors', 'campaigns', 'events', 'tasks', 'projects', 'issues', 'timelogs', 'timesheets', 'tickets', 'kpis', 'kpiVals', 'appraisals', 'reports', 'channels', 'messages', 'programmes', 'sessions', 'assignments', 'submissions', 'assessments', 'attempts', 'certs', 'leaves', 'attendance', 'announcements', 'acks', 'approvals', 'notifications', 'docsLog', 'inspections', 'vault', 'exitslips', 'exceptions', 'outbox', 'webhooks', 'targets', 'rules', 'templates', 'lookups', 'readings', 'savedviews', 'schedules', 'surveys', 'facilityreqs', 'msgtpl', 'audit'];
 
 const COA = [
   ['1010', 'Bank – Main account', 'asset'], ['1020', 'Cash on hand', 'asset'], ['1100', 'Receivables – property sales', 'asset'], ['1150', 'Receivables – other income', 'asset'], ['1200', 'Prepayments and deposits', 'asset'], ['1500', 'Fixed assets – cost', 'asset'], ['1590', 'Accumulated depreciation', 'asset'],
@@ -31,7 +31,8 @@ const Seed = {
     DB.d.users = [
       U('u_admin', 'Tunde Bakare', 'superadmin', 'IT', 'System Administrator', { co: ['tre', 'tfm'], manager: 'u_coo' }),
       U('u_md', 'Chinedu Eze', 'groupexec', 'Management', 'Managing Director', { co: ['tre', 'tfm'] }),
-      U('u_coo', 'Ifeoma Nwosu', 'companyexec', 'Management', 'Chief Operating Officer', { manager: 'u_md' }),
+      U('u_coo', 'Ifeoma Nwosu', 'groupexec', 'Management', 'Chief Operating Officer', { manager: 'u_md', co: ['tre', 'tfm'] }),
+      U('u_cexec', 'Bisola Akande', 'companyexec', 'Management', 'Company Managing Director', { manager: 'u_md' }),
       U('u_ops', 'Amina Yusuf', 'hod', 'Operations', 'Operations Director', { manager: 'u_coo', flags: ['opsdirector'] }),
       U('u_sales', 'Segun Adeyemi', 'hod', 'Sales', 'Head of Sales', { manager: 'u_coo' }),
       U('u_mkt', 'Tola Martins', 'hod', 'Marketing', 'Head of Marketing', { manager: 'u_coo' }),
@@ -251,7 +252,8 @@ const Seed = {
 
     /* second company light data */
     CO = 'tre'; [['Palmgrove Court, Block B', 'Plumbing', 'High', 'Burst pipe in the common bathroom.', 'Assigned', 'u_op1'], ['Lekki Gardens Phase 2', 'Security', 'Medium', 'Replace the perimeter floodlights.', 'In progress', 'u_op2'], ['Palmgrove Court, Block A', 'Cleaning', 'Low', 'Quarterly deep clean of stairwells.', 'New', '']].forEach(([property, type, priority, desc, status, assignee], i) => DB.add('facilityreqs', { no: 'FM-' + String(DB.seq('facility')).padStart(4, '0'), property, type, priority, desc, status, assignee, clientId: clients[i].id, notes: [] }, { quiet: true }));
-    DB.add('schedules', { name: 'Daily collections summary', type: 'collections', time: '18:00', recipients: ['u_md', 'u_coo'], active: true, lastRun: '' }, { quiet: true });
+    [['alloc', 'Allocation', 'Triconna: congratulations {{name}}. Plot(s) {{plots}} in {{estate}} are now allocated to you (sale {{sale}}).'], ['paid', 'Full payment', 'Triconna: {{name}}, your payment for {{sale}} is complete. Documentation will start now.'], ['docs', 'Document ready', 'Triconna: {{name}}, your title documents for {{sale}} are ready for collection.']].forEach(([key, name, text]) => DB.add('msgtpl', { key, name, text, channel: 'SMS' }, { quiet: true }));
+    DB.add('schedules', { name: 'Daily collections summary', type: 'collections', time: '18:00', recipients: ['u_md', 'u_coo', 'u_cexec'], active: true, lastRun: '' }, { quiet: true });
     CO = 'tfm'; DB.add('clients', { name: 'Palmgrove Residents Association', phone: '08031234567', email: 'office@palmgrove.example', address: 'Lekki, Lagos', kyc: [], officer: 'u_f1', source: 'Referral', created: now - 60 * 864e5 }, { quiet: true }); DB.add('tasks', { title: 'Quarterly generator service · Palmgrove', assignee: 'u_f1', due: addDays(t0, 6), priority: 'Medium', status: 'todo', checklist: [], comments: [], history: [], created: now }, { quiet: true });
     postJournal({ date: addDays(t0, -60), memo: 'Opening capital', lines: [{ acct: '1010', dr: 20000000 }, { acct: '3000', cr: 20000000 }], source: 'manual', quiet: true, force: true }); DB.add('channels', { name: 'general', type: 'public', members: ['u_md', 'u_f1'] }, { quiet: true }); CO = 'tre';
 

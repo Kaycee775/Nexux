@@ -22,7 +22,7 @@ let fails = 0; const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m);
   await p.evaluate(id => ACT['fac.done']({ dataset: { id } }), fid); await p.waitForSelector('#ovform'); await p.fill('#of-v', 'fixed'); await p.click('[data-act="ov.submit"]'); await p.waitForTimeout(200);
   ok(await p.evaluate(id => DB.get('facilityreqs', id).status === 'Completed', fid), 'facility request completed');
   // dashboard filters
-  await as('u_md'); await p.evaluate(() => { location.hash = '#/dashboard/exec'; }); await p.waitForTimeout(300);
+  await as('u_md'); await p.evaluate(() => { location.hash = '#/dashboard/company'; }); await p.waitForTimeout(300);
   await p.evaluate(() => ACT['dsh.set']({ dataset: { k: 'from' }, value: '2026-01-01' })); await p.waitForTimeout(200);
   ok(await p.evaluate(() => /Sales in range/.test(document.body.innerText) && dashFiltered().sales.length > 10), 'dashboard date filter widens results: ' + await p.evaluate(() => dashFiltered().sales.length));
   // search page

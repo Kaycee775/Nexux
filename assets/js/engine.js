@@ -130,7 +130,7 @@ function afterPayment(sale, pay) {
     const t = DB.add('tasks', { title: 'Start title documentation · ' + sale.no, desc: 'Sale fully paid. Prepare survey, deed of assignment and C of O.', assignee: deptHead('Operations') || sale.officer, due: addDays(today(), 14), priority: 'High', status: 'todo', link: { type: 'sale', id: sale.id }, history: [], comments: [], auto: 'docs', project: '' }, { quiet: true });
   }
 }
-function notifyClientMilestone(sale, what) { const cl = DB.get('clients', sale.clientId); if (cl) { sendExternal('sms', cl.phone, `Triconna: your ${what} milestone for ${sale.no} is recorded.`); DB.add('interactions', { clientId: cl.id, type: 'System', note: 'Milestone notification sent: ' + what, ts: Date.now(), by: 'system' }, { quiet: true }); } }
+function notifyClientMilestone(sale, what) { const cl = DB.get('clients', sale.clientId); if (cl) { const key = /allocation/.test(what) ? 'alloc' : /full/.test(what) ? 'paid' : 'docs'; const t = DB.q('msgtpl').find(x => x.key === key); const txt = t ? t.text.replace(/\{\{name\}\}/g, cl.name.split(' ')[0]).replace(/\{\{sale\}\}/g, sale.no).replace(/\{\{estate\}\}/g, estateOf(sale.estateId)?.name || '').replace(/\{\{plots\}\}/g, sale.plotIds.map(i => DB.get('plots', i)?.no).join(', ')) : `Triconna: your ${what} milestone for ${sale.no} is recorded.`; sendExternal('sms', cl.phone, txt); DB.add('interactions', { clientId: cl.id, type: 'System', note: 'Milestone notification sent: ' + what, ts: Date.now(), by: 'system' }, { quiet: true }); } }
 function createCommissions(sale) {
   const rl = DB.get('realtors', sale.realtorId); if (!rl) return; const r = DB.setting('commissionRates');
   const rate = rl.level === 'Maverick' ? r.Maverick : r.Associate;
