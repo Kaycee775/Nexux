@@ -1,5 +1,5 @@
 /* Tri-OP service worker: caches the app shell so it installs as a PWA and opens offline. */
-const CACHE = 'triop-shell-v1';
+const CACHE = 'triop-shell-v2';
 const SHELL = ['./', 'index.html', 'favicon.svg', 'manifest.webmanifest', 'assets/css/app.css', 'assets/js/vendor/qrcode.js', 'assets/js/core.js', 'assets/js/components.js', 'assets/js/engine.js', 'assets/js/seed.js', 'assets/js/app.js', 'assets/js/pages/dashboard.js', 'assets/js/pages/inventory.js', 'assets/js/pages/crm.js', 'assets/js/pages/finance.js', 'assets/js/pages/accounting.js', 'assets/js/pages/realtors.js', 'assets/js/pages/hr.js', 'assets/js/pages/work.js', 'assets/js/pages/cx.js', 'assets/js/pages/chat.js', 'assets/js/pages/learning.js', 'assets/js/pages/admin.js'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== CACHE).map(x => caches.delete(x)))).then(() => self.clients.claim())); });

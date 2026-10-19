@@ -61,6 +61,7 @@ function shell(content, mod) {
   <div class="search"><label class="chip">${icon('search', 'sm')}<input id="gsearch" type="search" placeholder="Search clients, plots, staff, invoices, tickets" autocomplete="off" aria-label="Global search"></label><div class="sresults hide" id="sres"></div></div><span class="sp"></span>
   ${readOnlyUser() ? '' : `<button class="btn primary" data-act="quick">${icon('plus', 'sm')} Quick create</button>`}
   <button class="iconbtn" data-act="bell" aria-label="Notifications">${icon('bell')}${unreadCount() ? '<span class="dot"></span>' : ''}</button>
+  <button class="btn" data-act="switch.user" title="Go back to the sign-in screen and pick another role">${icon('refresh', 'sm')} Switch role</button>
   <button class="iconbtn" style="padding:0;border:0" data-act="profile" aria-label="Profile">${avatar(u.name)}</button></div>${content}</main></div><nav class="mnav" aria-label="Mobile">${mn}</nav>`;
 }
 function renderBadge() { if (SESS.uid && me()) render(); }
